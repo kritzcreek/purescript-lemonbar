@@ -1,0 +1,21 @@
+{
+  "name": "purescript-lemonbar",
+  "version": "1.0.0",
+  "moduleType": [
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-console": "^0.1.0",
+    "purescript-node-child-process": "^0.5.1",
+    "purescript-node-streams": "^0.3.0",
+    "purescript-colors": "^0.4.3",
+    "purescript-signal": "^5.0.0",
+    "purescript-eff-functions": "^0.1.1"
+  }
+}
