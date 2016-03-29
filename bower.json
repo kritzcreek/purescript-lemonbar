@@ -16,6 +16,7 @@
     "purescript-node-streams": "^0.3.0",
     "purescript-colors": "^0.4.3",
     "purescript-signal": "^5.0.0",
-    "purescript-eff-functions": "^0.1.1"
+    "purescript-eff-functions": "^0.1.1",
+    "purescript-datetime": "^0.9.1"
   }
 }
