@@ -17,5 +17,5 @@ cpuSection interval = runST do
   runEffFn2 setupCpuUsage 1000 (mkEffFn1 (void <<< writeSTRef currentCpuUsage))
   let states = every (toNumber interval) ~> \_ -> do
         usage <- readSTRef currentCpuUsage
-        pure ("CPU:" <> show usage <> "%")
+        pure (" CPU:" <> show usage <> "% ")
   unwrap states

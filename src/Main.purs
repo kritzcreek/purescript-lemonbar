@@ -5,19 +5,36 @@ import Color.Scheme.MaterialDesign as MD
 import Control.Apply (lift2, (<*))
 import Control.Monad.Eff.Console (log)
 import Lemon.Bar
-import Lemon.Bar (Format(AlignCenter))
+import Lemon.Bar (clickable, mkBar, Lemonbar(Lemonbar))
+import Lemon.Bar.Format (Format(FormatColor, Font), Face(SwapColors, Coloring), addFormat, defaultFormatting, applyFormatting, Formatting)
 import Lemon.CPU (cpuSection)
 import Lemon.Clock (clockSection)
+import Lemon.Bar.Label (labelSection)
 import Node.ChildProcess (stderr, stdout, stdin)
 import Node.Encoding (Encoding(UTF8))
 import Node.Stream (writeString, onDataString)
 import Prelude
-import Prelude (class Semigroup, (#), ($), unit, pure, void)
 import Signal (constant, Signal, sampleOn, (~), (<~), (~>), runSignal)
 import Signal.Time (second, every)
 
-combine :: forall a. (Semigroup a) => Signal a -> Signal a -> Signal a
-combine = lift2 (<>)
+myCpu = cpuSection 1000
+        # applyFormatting (defaultFormatting
+                           # addFormat (Font 2)
+                           # addFormat (FormatColor SwapColors))
+myClock = clockSection
+          # applyFormatting defaultFormatting
+
+myLabel = labelSection "   PURSBAR!   "
+           # clickable "myLabel"
+           # applyFormatting (defaultFormatting
+                              # addFormat (FormatColor (Coloring { foreground: black
+                                                                 , background: MD.green}))
+                              # addFormat (Font 1))
+
+myBar = Lemonbar { left: [myCpu]
+                 , center: [myLabel]
+                 , right: [myClock]
+                 }
 
 -- main :: forall e. Eff (console :: CONSOLE, cp :: CHILD_PROCESS, cpu :: CPU | e) Unit
 main = do
@@ -29,11 +46,7 @@ main = do
   onDataString lerr UTF8 log
   onDataString lout UTF8 log
 
-  cpu <- cpuSection 1000 # applyFormat (FormattingBlock [BackgroundColor MD.red]) # applyFormat (FormattingBlock [AlignLeft]) 
-  clock <- clockSection # applyFormat (FormattingBlock [BackgroundColor MD.green]) # applyFormat (FormattingBlock [AlignRight]) 
-
-  let signal = sampleOn (every second) $ cpu `combine`
-               constant (render (FormattingBlock [AlignCenter]) <> (render (FormattingBlock [BackgroundColor MD.cyan])) <> "  Whaddup? ") `combine`
-               clock
+  bar <- mkBar myBar
+  let signal = sampleOn (every second) $ bar
   runSignal (signal ~> \s -> log s <* writeString lin UTF8 ( s <> "\n") (pure unit))
   log "Done."

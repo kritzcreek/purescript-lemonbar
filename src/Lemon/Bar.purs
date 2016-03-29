@@ -2,48 +2,18 @@ module Lemon.Bar where
 
 import Color (black, toHexString, Color)
 import Color.Scheme.MaterialDesign as MD
+import Control.Apply (lift2)
 import Control.Monad.Eff (Eff)
 import Data.Array ((:))
-import Data.Foldable (foldMap)
-import Data.Monoid (class Monoid)
+import Data.Foldable (foldl)
+import Data.Traversable (sequence)
 import Node.ChildProcess (defaultSpawnOptions, spawn, ChildProcess, CHILD_PROCESS)
 import Prelude
-import Prelude (class Semigroup, (<<<), map)
-import Signal ((~>), Signal)
+import Signal (constant, Signal)
 
-newtype FormattingBlock = FormattingBlock (Array Format)
-
-instance formattingBlockSemigroup :: Semigroup FormattingBlock where
-  append (FormattingBlock fb) (FormattingBlock fb') = FormattingBlock (fb <> fb')
-
-instance formattingBlockMonoid :: Monoid FormattingBlock where
-  mempty = FormattingBlock []
-
-clickable :: String -> FormattingBlock -> String -> String
-clickable s fb section = render fb <> "%{A:" <> s <> ":}" <> section <> "{A}"
-
-render :: FormattingBlock -> String
-render (FormattingBlock f) = "%{" <> foldMap showFormat f <> "}"
-
-showFormat :: Format -> String
-showFormat SwapColors = "R"
-showFormat AlignLeft = "l"
-showFormat AlignCenter = "c"
-showFormat AlignRight = "r"
-showFormat (Offset o) = "O" <> show o
-showFormat (BackgroundColor c) = "B" <> toHexString c
-showFormat (ForegroundColor c) = "F" <> toHexString c
-showFormat (Font ix) = "T" <> show ix
-
-data Format
-  = SwapColors
-  | AlignLeft
-  | AlignCenter
-  | AlignRight
-  | Offset Int
-  | BackgroundColor Color
-  | ForegroundColor Color
-  | Font Int
+clickable :: forall a e. String -> Section e -> Section e
+clickable a s =
+  (\s' -> constant ("%{A:" <> a <> ":}") <+> s' <+> constant "%{A}") <$> s
 
 foreign import data LEMON ∷ !
 
@@ -58,6 +28,40 @@ type BarConfig =
   , foregroundColor ∷ Color
   }
 
+newtype Lemonbar e =
+  Lemonbar
+  { left :: Array (Section e)
+  , center :: Array (Section e)
+  , right :: Array (Section e)
+  }
+
+data Alignment
+  = AlignLeft
+  | AlignCenter
+  | AlignRight
+
+combine :: forall a. (Semigroup a) => Signal a -> Signal a -> Signal a
+combine = lift2 (<>)
+
+infixl 3 combine as <+>
+
+mkBar :: forall e. Lemonbar e -> Eff e (Signal String)
+mkBar (Lemonbar {left, center, right}) = do
+  ls <- concatSection left
+  cs <- concatSection center
+  rs <- concatSection right
+  pure $ constant lMarker <+> ls <+> constant cMarker <+> cs <+> constant rMarker <+> rs
+  where
+    concatSection :: forall eff. Array (Section eff) -> Eff eff (Signal String)
+    concatSection = map (foldl (<+>) (constant "")) <<< sequence
+
+lMarker:: String
+lMarker = "%{l}"
+rMarker :: String
+rMarker = "%{r}"
+cMarker :: String
+cMarker = "%{c}"
+
 defaultBarCfg ∷ BarConfig
 defaultBarCfg = { dimensions: {width: 1200, height: 50}
                 , position: {x: 300, y: 50 }
@@ -65,19 +69,6 @@ defaultBarCfg = { dimensions: {width: 1200, height: 50}
                 , backgroundColor: MD.red
                 , foregroundColor: black
                 }
-
-defaultFormat :: FormattingBlock
-defaultFormat = FormattingBlock [BackgroundColor MD.red, ForegroundColor black]
-
-applyFormat :: forall e. FormattingBlock -> Section e -> Section e
-applyFormat fb s = do
-  s' <- s
-  pure (s' ~> (render fb <> _))
-
-applyClickFormat :: forall e. String -> FormattingBlock -> Section e -> Section e
-applyClickFormat c fb s = do
-  s' <- s
-  pure (s' ~> clickable c fb)
 
 mkOpts ∷ BarConfig → Array String
 mkOpts {dimensions: {width, height}, position: {x, y}, fonts, backgroundColor, foregroundColor} =
