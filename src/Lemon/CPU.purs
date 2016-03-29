@@ -4,7 +4,7 @@ import Control.Monad.ST (readSTRef, writeSTRef, newSTRef, runST)
 import Data.Function.Eff (mkEffFn1, runEffFn2, EffFn1, EffFn2)
 import Data.Int (toNumber)
 import Lemon.Bar (Section)
-import Prelude (pure, show, (<<<), void, Unit, bind)
+import Prelude ((<>), pure, show, (<<<), void, Unit, bind)
 import Signal ((~>), unwrap)
 import Signal.Time (every)
 
@@ -17,5 +17,5 @@ cpuSection interval = runST do
   runEffFn2 setupCpuUsage 1000 (mkEffFn1 (void <<< writeSTRef currentCpuUsage))
   let states = every (toNumber interval) ~> \_ -> do
         usage <- readSTRef currentCpuUsage
-        pure (show usage)
+        pure ("CPU:" <> show usage <> "%")
   unwrap states
